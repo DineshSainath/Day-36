@@ -1,0 +1,81 @@
+1. Find all the topics and tasks which are thought in the month of October
+Answer:
+db.topics.find({ 
+    "date": { 
+        $gte: ISODate("2020-10-01T00:00:00Z"), 
+        $lt: ISODate("2020-11-01T00:00:00Z") 
+    } 
+});
+
+db.tasks.find({ 
+    "assigned_date": { 
+        $gte: ISODate("2020-10-01T00:00:00Z"), 
+        $lt: ISODate("2020-11-01T00:00:00Z") 
+    } 
+});
+
+2. Find all the company drives which appeared between 15 Oct 2020 and 31 Oct 2020
+Answer:
+db.company_drives.find({ 
+    "date": { 
+        $gte: ISODate("2020-10-15T00:00:00Z"), 
+        $lt: ISODate("2020-11-01T00:00:00Z") 
+    } 
+});
+
+3. Find all the company drives and students who appeared for the placement
+Answer:
+db.company_drives.aggregate([
+    {
+        $lookup: {
+            from: "users",
+            localField: "students_attending",
+            foreignField: "_id",
+            as: "students"
+        }
+    }
+]);
+
+4. Find the number of problems solved by the user in codekata
+Answer:
+db.codekata.aggregate([
+    { $unwind: "$problems_solved" },
+    { $group: { _id: "$user_id", count: { $sum: 1 } } }
+]);
+
+5. Find all the mentors with mentees count more than 15
+Answer:
+db.users.aggregate([
+    { $match: { role: "student" } },
+    { $group: { _id: "$mentor_id", count: { $sum: 1 } } },
+    { $match: { count: { $gt: 15 } } },
+    { $lookup: {
+        from: "mentors",
+        localField: "_id",
+        foreignField: "_id",
+        as: "mentor"
+    } },
+    { $unwind: "$mentor" },
+    { $project: { _id: 0, name: "$mentor.name", email: "$mentor.email", count: 1 } }
+]);
+
+6. Find the number of users who are absent and task is not submitted between 15 Oct 2020 and 31 Oct 2020
+Answer:
+db.attendance.aggregate([
+    { $unwind: "$dates_absent" },
+    { $match: { 
+        dates_absent: { 
+            $gte: ISODate("2020-10-15T00:00:00Z"), 
+            $lt: ISODate("2020-11-01T00:00:00Z") 
+        } 
+    } },
+    { $lookup: {
+        from: "tasks",
+        localField: "user_id",
+        foreignField: "user_id",
+        as: "tasks"
+    } },
+    { $unwind: "$tasks" },
+    { $match: { "tasks.status": "pending", "tasks.due_date": { $lt: ISODate("2020-11-01T00:00:00Z") } } },
+    { $group: { _id: "$user_id", count: { $sum: 1 } } }
+]);
